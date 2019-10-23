@@ -102,6 +102,8 @@ struct evbuffer {
 	size_t total_len;
 	/** Maximum bytes per one read */
 	size_t max_read;
+	/** Maximum bytes per one write */
+	size_t max_write;
 
 	/** Number of bytes we have added to the buffer since we last tried to
 	 * invoke callbacks. */

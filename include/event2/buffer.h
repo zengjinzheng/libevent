@@ -174,6 +174,20 @@ void evbuffer_free(struct evbuffer *buf);
 EVENT2_EXPORT_SYMBOL
 int evbuffer_set_max_read(struct evbuffer *buf, size_t max);
 /**
+  Set maximum write buffer size
+
+  Default is 4096 and it works fine most of time, so before increasing the
+  default check carefully, since this has some negative effects (like memory
+  fragmentation and unfair resource distribution, i.e. some events will make
+  less progress than others).
+
+  @param buf pointer to the evbuffer
+  @param max buffer size
+  @return 0 on success, -1 on failure (if max > INT_MAX).
+ */
+EVENT2_EXPORT_SYMBOL
+int evbuffer_set_max_write(struct evbuffer *buf, size_t max);
+/**
   Get maximum read buffer size
 
   @param buf pointer to the evbuffer

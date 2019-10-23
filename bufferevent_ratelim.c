@@ -871,14 +871,16 @@ int
 bufferevent_set_max_single_write(struct bufferevent *bev, size_t size)
 {
 	struct bufferevent_private *bevp;
+	int ret = 0;
 	BEV_LOCK(bev);
 	bevp = BEV_UPCAST(bev);
 	if (size == 0 || size > EV_SSIZE_MAX)
 		bevp->max_single_write = MAX_SINGLE_WRITE_DEFAULT;
 	else
 		bevp->max_single_write = size;
+	ret = evbuffer_set_max_write(bev->output, bevp->max_single_write);
 	BEV_UNLOCK(bev);
-	return 0;
+	return ret;
 }
 
 ev_ssize_t

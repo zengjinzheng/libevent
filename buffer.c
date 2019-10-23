@@ -605,6 +605,19 @@ int evbuffer_set_max_read(struct evbuffer *buf, size_t max)
 	EVBUFFER_UNLOCK(buf);
 	return 0;
 }
+
+int evbuffer_set_max_write(struct evbuffer *buf, size_t max)
+{
+	if (max > INT_MAX) {
+		return -1;
+	}
+
+	EVBUFFER_LOCK(buf);
+	buf->max_write = max;
+	EVBUFFER_UNLOCK(buf);
+	return 0;
+}
+
 size_t evbuffer_get_max_read(struct evbuffer *buf)
 {
 	size_t result;
