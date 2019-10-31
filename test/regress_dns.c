@@ -800,7 +800,7 @@ dns_clear_nameservers_and_suspend_test(void *args)
 	evdns_base_nameserver_add(evdns_test,10211816);
 	nameserver_number = evdns_base_count_nameservers(evdns_test);
 	tt_assert(nameserver_number == 1);
-	evdns_base_clear_nameservers_and_suspend(evdns_tests);
+	evdns_base_clear_nameservers_and_suspend(evdns_test);
 	nameserver_number = evdns_base_count_nameservers(evdns_test);
 	tt_assert(nameserver_number == 0);
 
