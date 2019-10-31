@@ -2515,16 +2515,17 @@ static void
 req_server_cb(struct evdns_server_request *req, void *arg)
 {
 	struct sockaddr *sa = NULL;
+	int flags,r;
 	ev_uint32_t answer = 0x7f000001;
 	tt_assert(req->nquestions);
 	// get requesting addr
-	int r = evdns_server_request_get_requesting_addr(req,sa,sizeof(sa));
+	r = evdns_server_request_get_requesting_addr(req,sa,sizeof(sa));
 	tt_int_op(r , == , -1);
 	evdns_server_request_add_a_reply(req, req->questions[0]->name, 1,
 	    &answer, 100);
 	evdns_server_request_respond(req, 0);
 	#ifdef _WIN32
-	int flags = req->flags;
+	flags = req->flags;
 	tt_int_op(flags , == , -572662307);
 	//set flags
 	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
@@ -2532,7 +2533,7 @@ req_server_cb(struct evdns_server_request *req, void *arg)
 	tt_int_op(flags , == , -572663331);
 	#endif
 	#ifndef _WIN32
-	int flags = req->flags;
+	flags = req->flags;
 	tt_int_op(flags , == , 256);
 	//set flags
 	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
