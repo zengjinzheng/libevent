@@ -765,10 +765,11 @@ dns_nameserver_add_test(void *arg)
 {
 	int nameserver_number;
 	struct evdns_base *evdns_test = NULL;
-	struct basic_test_data *data = arg;
-	struct event_base *event_test = data ->base;
+	struct event_base *event_test = NULL;
 	
-	evdns_test =  evdns_base_new(event_test,0);
+	event_test = event_base_new();
+	tt_assert(event_test);
+	evdns_test = evdns_base_new(event_test,0);
 	tt_assert(evdns_test);
 
 	nameserver_number = evdns_base_count_nameservers(evdns_test);
