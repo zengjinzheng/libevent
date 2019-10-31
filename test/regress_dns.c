@@ -761,14 +761,13 @@ end:
 }
 
 static void
-dns_nameserver_add_test(void *args)
+dns_nameserver_add_test(void *arg)
 {
 	int nameserver_number;
 	struct evdns_base *evdns_test = NULL;
-	struct event_base *event_test = NULL;
+	struct basic_test_data *data = arg;
+	struct event_base *event_test = data ->base;
 	
-	event_test = event_base_new();
-	tt_assert(event_test);
 	evdns_test =  evdns_base_new(event_test,0);
 	tt_assert(evdns_test);
 
@@ -782,17 +781,17 @@ end:
 	if (evdns_test)
 		evdns_base_free(evdns_test, 0);
 	if (event_test)
-		evdns_base_free(event_test, 0);
+		event_base_free(event_test);
 }
 
 static void
-dns_clear_nameservers_and_suspend_test(void *args)
+dns_clear_nameservers_and_suspend_test(void *arg)
 {
 	int nameserver_number;
 	struct evdns_base *evdns_test = NULL;
-	struct event_base *event_test = NULL;
+	struct basic_test_data *data = arg;
+	struct event_base *event_test = data ->base;
 	
-	event_test = event_base_new();
 	tt_assert(event_test);
 	evdns_test =  evdns_base_new(event_test,0);
 	tt_assert(evdns_test);
@@ -808,7 +807,7 @@ end:
 	if (evdns_test)
 		evdns_base_free(evdns_test, 0);
 	if (event_test)
-		evdns_base_free(event_test, 0);
+		event_base_free(event_test);
 }
 
 static void
