@@ -790,11 +790,11 @@ dns_clear_nameservers_and_suspend_test(void *arg)
 {
 	int nameserver_number;
 	struct evdns_base *evdns_test = NULL;
-	struct basic_test_data *data = arg;
-	struct event_base *event_test = data ->base;
+	struct event_base *event_test = NULL;
 	
+	event_test = event_base_new();
 	tt_assert(event_test);
-	evdns_test =  evdns_base_new(event_test,0);
+	evdns_test = evdns_base_new(event_test,0);
 	tt_assert(evdns_test);
 
 	evdns_base_nameserver_add(evdns_test,10211816);
