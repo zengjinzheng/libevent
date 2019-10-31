@@ -2518,7 +2518,7 @@ req_server_cb(struct evdns_server_request *req, void *arg)
 	ev_uint32_t answer = 0x7f000001;
 	tt_assert(req->nquestions);
 	// get requesting addr
-	int r = evdns_server_get_requesting_addr(req,sa,sizeof(sa));
+	int r = evdns_server_request_get_requesting_addr(req,sa,sizeof(sa));
 	tt_int_op(r , == , -1);
 	evdns_server_request_add_a_reply(req, req->questions[0]->name, 1,
 	    &answer, 100);
