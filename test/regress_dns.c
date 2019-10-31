@@ -2532,12 +2532,12 @@ req_server_cb(struct evdns_server_request *req, void *arg)
 	tt_int_op(flags , == , -572663331);
 	#endif
 	#ifndef _WIN32
-	int flag = req->flags;
-	tt_int_op(flag , == , 256);
+	int flags = req->flags;
+	tt_int_op(flags , == , 256);
 	//set flags
 	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
-	flags = req->flag;
-	tt_int_op(flag , == , 384);
+	flags = req->flags;
+	tt_int_op(flags , == , 384);
 	#endif
 	return;
 end:
