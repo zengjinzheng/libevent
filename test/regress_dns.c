@@ -2537,7 +2537,7 @@ req_server_cb(struct evdns_server_request *req, void *arg)
 	//set flags
 	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
 	flags = req->flag;
-	tt_int_op(flag , == , -384);
+	tt_int_op(flag , == , 384);
 	#endif
 	return;
 end:
