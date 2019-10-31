@@ -721,7 +721,7 @@ dns_search_clear_test_impl(void *arg)
 	exit_base = base;
 
 	evdns_base_resolve_ipv4(
-		dns,"host.c_example.com",0,generic_dns_callback,&r[0]);
+		dns,"host.c.example.com",0,generic_dns_callback,&r[0]);
 	evdns_base_resolve_ipv4(
 		dns,"host2.b.example.com",0,generic_dns_callback,&r[1]);
 	evdns_base_resolve_ipv4(dns,"host",0,generic_dns_callback,&r[2]);	
@@ -2523,12 +2523,22 @@ req_server_cb(struct evdns_server_request *req, void *arg)
 	evdns_server_request_add_a_reply(req, req->questions[0]->name, 1,
 	    &answer, 100);
 	evdns_server_request_respond(req, 0);
+	#ifdef _WIN32
 	int flags = req->flags;
 	tt_int_op(flags , == , -572662307);
 	//set flags
 	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
 	flags = req->flags;
 	tt_int_op(flags , == , -572663331);
+	#endif
+	#ifndef _WIN32
+	int flag = req->flags;
+	tt_int_op(flag , == , 256);
+	//set flags
+	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
+	flags = req->flag;
+	tt_int_op(flag , == , 384);
+	#endif
 	return;
 end:
 	evdns_server_request_respond(req, DNS_ERR_REFUSED);
