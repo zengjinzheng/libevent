@@ -2161,7 +2161,7 @@ end:
 
 #define IMPL_REQ_GET_ADDRINFO(name, flags)        \
 	static void                                   \
-	test_getaddinfo_##name##_(void *args)         \
+	test_getaddrinfo_##name##_(void *args)         \
 	{                                             \
 		req_get_addrinfo(args, flags);          \
 	}
@@ -2468,7 +2468,7 @@ struct testcase_t dns_testcases[] = {
 	  TT_FORK|TT_NEED_BASE, &basic_setup, (char*)"" },
 	{ "getaddrinfo_cancel_stress", test_getaddrinfo_async_cancel_stress_,
 	  TT_FORK, NULL, NULL },
-	{ "getaddinfo_set_flags", test_getaddinfo_set_flags_and_getrequesting_,
+	{ "getaddinfo_set_flags", test_getaddrinfo_set_flags_and_getrequesting_,
 	  TT_FORK, NULL, NULL },
 
 #ifdef EVENT_SET_MEM_FUNCTIONS_IMPLEMENTED
