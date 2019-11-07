@@ -536,7 +536,7 @@ static struct regress_dns_server_table search_table[] = {
 	{ NULL, NULL, NULL, 0, 0 }
 };
 static void
-dns_search_test_impl(void *arg, int lower)
+dns_search_test_impl(void *arg, int lower, int flags)
 {
 	struct regress_dns_server_table table[ARRAY_SIZE(search_table)];
 	struct basic_test_data *data = arg;
@@ -566,8 +566,14 @@ dns_search_test_impl(void *arg, int lower)
 	n_replies_left = ARRAY_SIZE(r);
 	exit_base = base;
 
-	evdns_base_resolve_ipv4(dns, "host", 0, generic_dns_callback, &r[0]);
-	evdns_base_resolve_ipv4(dns, "host2", 0, generic_dns_callback, &r[1]);
+	if (flags) {
+		evdns_base_search_clear(dns);
+		evdns_base_resolve_ipv4(dns, "host.c.example.com", 0, generic_dns_callback, &r[0]);
+		evdns_base_resolve_ipv4(dns, "host2.b.example.com", 0, generic_dns_callback, &r[1]);
+	} else {
+		evdns_base_resolve_ipv4(dns, "host", 0, generic_dns_callback, &r[0]);
+		evdns_base_resolve_ipv4(dns, "host2", 0, generic_dns_callback, &r[1]);
+	}
 	evdns_base_resolve_ipv4(dns, "host", DNS_NO_SEARCH, generic_dns_callback, &r[2]);
 	evdns_base_resolve_ipv4(dns, "host2", DNS_NO_SEARCH, generic_dns_callback, &r[3]);
 	evdns_base_resolve_ipv4(dns, "host3", 0, generic_dns_callback, &r[4]);
@@ -619,8 +625,9 @@ end:
 	if (dns)
 		evdns_base_free(dns, 0);
 }
-static void dns_search_test(void *arg) { dns_search_test_impl(arg, 0); }
-static void dns_search_lower_test(void *arg) { dns_search_test_impl(arg, 1); }
+static void dns_search_test(void *arg) { dns_search_test_impl(arg, 0, 0); }
+static void dns_search_lower_test(void *arg) { dns_search_test_impl(arg, 1, 0); }
+static void dns_search_clear_test(void *arg) { dns_search_test_impl(arg, 1, 1); }
 
 static int request_count = 0;
 static struct evdns_request *current_req = NULL;
@@ -687,128 +694,6 @@ end:
 		evdns_close_server_port(port);
 	if (dns)
 		evdns_base_free(dns, 0);
-}
-
-static void
-dns_search_clear_test_impl(void *arg)
-{
-	struct regress_dns_server_table table[ARRAY_SIZE(search_table)];
-	struct basic_test_data *data = arg;
-	struct event_base *base = data ->base;
-	struct evdns_base *dns = NULL;
-	ev_uint16_t portnum = 0 ;
-	char buf[64];
-
-	struct generic_dns_callback_result r[8];
-	size_t i;
-
-	for (i = 0;i < ARRAY_SIZE(table);i++){
-		table[i] = search_table[i];
-	}
-
-	tt_assert(regress_dnsserver(base,&portnum,table));
-	evutil_snprintf(buf,sizeof(buf),"127.0.0.1:%d",(int)portnum);
-
-	dns = evdns_base_new(base,0);
-	tt_assert(!evdns_base_nameserver_ip_add(dns,buf));
-
-	evdns_base_search_add(dns,"a.example.com");
-	evdns_base_search_add(dns,"b.example.com");
-	evdns_base_search_add(dns,"c.example.com");
-
-	evdns_base_search_clear(dns);
-	n_replies_left = ARRAY_SIZE(r);
-	exit_base = base;
-
-	evdns_base_resolve_ipv4(
-		dns,"host.c.example.com",0,generic_dns_callback,&r[0]);
-	evdns_base_resolve_ipv4(
-		dns,"host2.b.example.com",0,generic_dns_callback,&r[1]);
-	evdns_base_resolve_ipv4(dns,"host",0,generic_dns_callback,&r[2]);	
-	evdns_base_resolve_ipv4(dns,"host2",0,generic_dns_callback,&r[3]);
-	evdns_base_resolve_ipv4(dns,"host3",0,generic_dns_callback,&r[4]);
-	evdns_base_resolve_ipv4(
-		dns,"hostn.a.example.com",0,generic_dns_callback,&r[5]);
-	evdns_base_resolve_ipv4(
-		dns,"hostn.b.example.com",0,generic_dns_callback,&r[6]);
-	evdns_base_resolve_ipv4(
-		dns,"hostn.c.example.com",0,generic_dns_callback,&r[7]);
-	
-	event_base_dispatch(base);
-
-	tt_int_op(r[0].type, ==, DNS_IPv4_A);
-	tt_int_op(r[0].count, ==, 1);
-	tt_int_op(((ev_uint32_t*)r[0].addrs)[0], ==, htonl(0x0b16212c));
-	tt_int_op(r[1].type, ==, DNS_IPv4_A);
-	tt_int_op(r[1].count, ==, 1);
-	tt_int_op(((ev_uint32_t*)r[1].addrs)[0], ==, htonl(0xc8640064));
-	tt_int_op(r[2].result, ==, DNS_ERR_NOTEXIST);
-	tt_int_op(r[3].result, ==, DNS_ERR_NOTEXIST);
-	tt_int_op(r[4].result, ==, DNS_ERR_NOTEXIST);
-	tt_int_op(r[5].result, ==, DNS_ERR_NODATA);
-	tt_int_op(r[5].ttl, ==, 42);
-	tt_int_op(r[6].result, ==, DNS_ERR_NOTEXIST);
-	tt_int_op(r[6].ttl, ==, 42);
-	tt_int_op(r[7].result, ==, DNS_ERR_NODATA);
-	tt_int_op(r[7].ttl, ==, 0);
-
-end:
-	if (dns)
-		evdns_base_free(dns, 0);
-
-	regress_clean_dnsserver();
-
-}
-
-static void
-dns_nameserver_add_test(void *arg)
-{
-	int nameserver_number;
-	struct evdns_base *evdns_test = NULL;
-	struct event_base *event_test = NULL;
-	
-	event_test = event_base_new();
-	tt_assert(event_test);
-	evdns_test = evdns_base_new(event_test,0);
-	tt_assert(evdns_test);
-
-	nameserver_number = evdns_base_count_nameservers(evdns_test);
-	tt_assert(nameserver_number == 0);
-	evdns_base_nameserver_add(evdns_test,10211816);
-	nameserver_number = evdns_base_count_nameservers(evdns_test);
-	tt_assert(nameserver_number == 1);
-
-end:
-	if (evdns_test)
-		evdns_base_free(evdns_test, 0);
-	if (event_test)
-		event_base_free(event_test);
-}
-
-static void
-dns_clear_nameservers_and_suspend_test(void *arg)
-{
-	int nameserver_number;
-	struct evdns_base *evdns_test = NULL;
-	struct event_base *event_test = NULL;
-	
-	event_test = event_base_new();
-	tt_assert(event_test);
-	evdns_test = evdns_base_new(event_test,0);
-	tt_assert(evdns_test);
-
-	evdns_base_nameserver_add(evdns_test,10211816);
-	nameserver_number = evdns_base_count_nameservers(evdns_test);
-	tt_assert(nameserver_number == 1);
-	evdns_base_clear_nameservers_and_suspend(evdns_test);
-	nameserver_number = evdns_base_count_nameservers(evdns_test);
-	tt_assert(nameserver_number == 0);
-
-end:
-	if (evdns_test)
-		evdns_base_free(evdns_test, 0);
-	if (event_test)
-		event_base_free(event_test);
 }
 
 static void
@@ -1396,8 +1281,6 @@ test_bufferevent_connect_hostname(void *arg)
 	ev_uint16_t dns_port=0;
 	int n_accept=0, n_dns=0;
 	char buf[128];
-	int success = BEV_EVENT_CONNECTED;
-	int default_error = 0;
 	unsigned i;
 	int ret;
 	struct evutil_addrinfo in_hints;
@@ -1408,22 +1291,6 @@ test_bufferevent_connect_hostname(void *arg)
 		in_hints.ai_protocol = IPPROTO_TCP;
 		in_hints.ai_socktype = SOCK_STREAM;
 		in_hints.ai_flags = EVUTIL_AI_ADDRCONFIG;
-	}
-
-	if (emfile) {
-		success = BEV_EVENT_ERROR;
-#if defined(__linux__)
-		/* on linux glibc/musl reports EAI_SYSTEM, when getaddrinfo() cannot
-		 * open file for resolving service. */
-		default_error = EVUTIL_EAI_SYSTEM;
-#elif defined(__sun__)
-		/* on solaris it returns EAI_FAIL */
-		default_error = EVUTIL_EAI_FAIL;
-		/** the DP_POLL can also fail with EINVAL under EMFILE */
-#else
-		/* on osx/freebsd it returns EAI_NONAME */
-		default_error = EVUTIL_EAI_NONAME;
-#endif
 	}
 
 	be_connect_hostname_base = data->base;
@@ -1516,12 +1383,16 @@ test_bufferevent_connect_hostname(void *arg)
 
 	tt_int_op(be_outcome[0].what, ==, BEV_EVENT_ERROR);
 	tt_int_op(be_outcome[0].dnserr, ==, EVUTIL_EAI_NONAME);
-	tt_int_op(be_outcome[1].what, ==, success);
+	tt_int_op(be_outcome[1].what, ==, !emfile ? BEV_EVENT_CONNECTED : BEV_EVENT_ERROR);
 	tt_int_op(be_outcome[1].dnserr, ==, 0);
-	tt_int_op(be_outcome[2].what, ==, success);
+	tt_int_op(be_outcome[2].what, ==, !emfile ? BEV_EVENT_CONNECTED : BEV_EVENT_ERROR);
 	tt_int_op(be_outcome[2].dnserr, ==, 0);
-	tt_int_op(be_outcome[3].what, ==, success);
-	tt_int_op(be_outcome[3].dnserr, ==, default_error);
+	tt_int_op(be_outcome[3].what, ==, !emfile ? BEV_EVENT_CONNECTED : BEV_EVENT_ERROR);
+	if (!emfile) {
+		tt_int_op(be_outcome[3].dnserr, ==, 0);
+	} else {
+		tt_int_op(be_outcome[3].dnserr, !=, 0);
+	}
 	if (expect_err) {
 		tt_int_op(be_outcome[4].what, ==, BEV_EVENT_ERROR);
 		tt_int_op(be_outcome[4].dnserr, ==, expect_err);
@@ -2204,8 +2075,33 @@ test_dbg_leak_shutdown(void *env_)
 }
 #endif
 
+#define _RD_MASK 0x0100U
+#define _RA_MASK 0x0080U
+
 static void
-test_getaddrinfo_async_cancel_stress(void *ptr)
+req_server_cb(struct evdns_server_request *req, void *arg)
+{
+	struct sockaddr sa;
+	int flags,r;
+	ev_uint32_t answer = 0x7f000001;
+	tt_assert(req->nquestions);
+	r= evdns_server_request_get_requesting_addr(req, &sa, sizeof(sa));
+	tt_assert(r);
+	flags = req->flags;
+	tt_int_op(flags, ==, _RD_MASK);
+	evdns_server_request_set_flags(req, EVDNS_FLAGS_RD);
+	flags = req->flags;
+	tt_int_op(flags, ==, _RD_MASK|_RA_MASK);
+	evdns_server_request_add_a_reply(req, req->questions[0]->name, 1,
+	    &answer, 100);
+	evdns_server_request_respond(req, 0);
+	return;
+end:
+	evdns_server_request_respond(req, DNS_ERR_REFUSED);
+}
+
+static void
+req_get_addrinfo(void *ptr, int flags)
 {
 	struct event_base *base;
 	struct evdns_base *dns_base = NULL;
@@ -2230,8 +2126,13 @@ test_getaddrinfo_async_cancel_stress(void *ptr)
 	if (bind(fd, (struct sockaddr*)&sin, sizeof(sin))<0) {
 		tt_abort_perror("bind");
 	}
-	server = evdns_add_server_port_with_base(base, fd, 0, gaic_server_cb,
+	if (flags) {
+		server = evdns_add_server_port_with_base(base, fd, 0, req_server_cb,
 	    base);
+	} else {
+		server = evdns_add_server_port_with_base(base, fd, 0, gaic_server_cb,
+	    base);
+	}
 
 	memset(&ss, 0, sizeof(ss));
 	slen = sizeof(ss);
@@ -2257,6 +2158,15 @@ end:
 	if (fd >= 0)
 		evutil_closesocket(fd);
 }
+
+#define IMPL_REQ_GET_ADDRINFO(name, flags)        \
+	static void                                   \
+	test_getaddinfo_##name##_(void *args)         \
+	{                                             \
+		req_get_addrinfo(args, flags);          \
+	}
+IMPL_REQ_GET_ADDRINFO(async_cancel_stress, 0)
+IMPL_REQ_GET_ADDRINFO(set_flags_and_getrequesting, 1)
 
 static void
 dns_client_fail_requests_test(void *arg)
@@ -2511,93 +2421,6 @@ end:
 		evdns_base_free(dns_base, 0);
 }
 
-static void
-req_server_cb(struct evdns_server_request *req, void *arg)
-{
-	struct sockaddr *sa = NULL;
-	int flags,r;
-	ev_uint32_t answer = 0x7f000001;
-	tt_assert(req->nquestions);
-	// get requesting addr
-	r = evdns_server_request_get_requesting_addr(req,sa,sizeof(sa));
-	tt_int_op(r , == , -1);
-	evdns_server_request_add_a_reply(req, req->questions[0]->name, 1,
-	    &answer, 100);
-	evdns_server_request_respond(req, 0);
-	#ifdef _WIN32
-	flags = req->flags;
-	tt_int_op(flags , == , -572662307);
-	//set flags
-	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
-	flags = req->flags;
-	tt_int_op(flags , == , -572663331);
-	#endif
-	#ifndef _WIN32
-	flags = req->flags;
-	tt_int_op(flags , == , 256);
-	//set flags
-	evdns_server_request_set_flags(req,EVDNS_FLAGS_RD);
-	flags = req->flags;
-	tt_int_op(flags , == , 384);
-	#endif
-	return;
-end:
-	evdns_server_request_respond(req, DNS_ERR_REFUSED);
-}
-
-static void
-test_get_requesting_addr_and_set_flags(void *arg)
-{
-	struct event_base *base;
-	struct evdns_base *dns_base = NULL;
-	struct evdns_server_port *server = NULL;
-	evutil_socket_t fd = -1;
-	struct sockaddr_in sin;
-	struct sockaddr_storage ss;
-	ev_socklen_t slen;
-	unsigned i;
-
-	base = event_base_new();
-	dns_base = evdns_base_new(base, 0);
-
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_port = 0;
-	sin.sin_addr.s_addr = htonl(0x7f000001);
-	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		tt_abort_perror("socket");
-	}
-	evutil_make_socket_nonblocking(fd);
-	if (bind(fd, (struct sockaddr*)&sin, sizeof(sin))<0) {
-		tt_abort_perror("bind");
-	}
-	server = evdns_add_server_port_with_base(base, fd, 0, req_server_cb,base);
-
-	memset(&ss, 0, sizeof(ss));
-	slen = sizeof(ss);
-	if (getsockname(fd, (struct sockaddr*)&ss, &slen)<0) {
-		tt_abort_perror("getsockname");
-	}
-	evdns_base_nameserver_sockaddr_add(dns_base,
-	    (struct sockaddr*)&ss, slen, 0);
-
-	for (i = 0; i < 1000; ++i) {
-		gaic_launch(base, dns_base);
-	}
-
-	event_base_dispatch(base);
-
-end:
-	if (dns_base)
-		evdns_base_free(dns_base, 1);
-	if (server)
-		evdns_close_server_port(server);
-	if (base)
-		event_base_free(base);
-	if (fd >= 0)
-		evutil_closesocket(fd);
-}
-
 #define DNS_LEGACY(name, flags)					       \
 	{ #name, run_legacy_test_fn, flags|TT_LEGACY, &legacy_setup,   \
 		    dns_##name }
@@ -2610,14 +2433,9 @@ struct testcase_t dns_testcases[] = {
 	{ "resolve_reverse", dns_resolve_reverse, TT_FORK|TT_OFF_BY_DEFAULT, NULL, NULL },
 	{ "search_empty", dns_search_empty_test, TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
 	{ "search", dns_search_test, TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
+	{ "search_clear", dns_search_clear_test, TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
 	{ "search_lower", dns_search_lower_test, TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
 	{ "search_cancel", dns_search_cancel_test,
-	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
-	{ "search_clear", dns_search_clear_test_impl,
-	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
-	{ "nameserver_add", dns_nameserver_add_test,
-	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
-	{ "clear_nameservers_and_suspend", dns_clear_nameservers_and_suspend_test,
 	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
 	{ "retry", dns_retry_test, TT_FORK|TT_NEED_BASE|TT_NO_LOGS, &basic_setup, NULL },
 	{ "retry_disable_when_inactive", dns_retry_disable_when_inactive_test,
@@ -2648,7 +2466,9 @@ struct testcase_t dns_testcases[] = {
 
 	{ "getaddrinfo_async", test_getaddrinfo_async,
 	  TT_FORK|TT_NEED_BASE, &basic_setup, (char*)"" },
-	{ "getaddrinfo_cancel_stress", test_getaddrinfo_async_cancel_stress,
+	{ "getaddrinfo_cancel_stress", test_getaddrinfo_async_cancel_stress_,
+	  TT_FORK, NULL, NULL },
+	{ "getaddinfo_set_flags", test_getaddinfo_set_flags_and_getrequesting_,
 	  TT_FORK, NULL, NULL },
 
 #ifdef EVENT_SET_MEM_FUNCTIONS_IMPLEMENTED
@@ -2676,8 +2496,6 @@ struct testcase_t dns_testcases[] = {
 #endif
 
 	{ "set_SO_RCVBUF_SO_SNDBUF", test_set_so_rcvbuf_so_sndbuf,
-	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
-	{ "get_requesting_addr_and_set_flags", test_get_requesting_addr_and_set_flags,
 	  TT_FORK|TT_NEED_BASE, &basic_setup, NULL },
 
 	END_OF_TESTCASES
